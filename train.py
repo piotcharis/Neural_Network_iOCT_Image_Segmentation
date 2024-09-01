@@ -5,6 +5,8 @@ from PIL import Image
 import os
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+import numpy as np
+
 
 class CustomSegmentationDataset(Dataset):
     def __init__(self, images_dir, masks_dir, transform=None, target_transform=None):
@@ -18,11 +20,19 @@ class CustomSegmentationDataset(Dataset):
         # Define a color to class mapping (example)
         self.color_to_class = {
             (0, 0, 0): 0,  # Background
-            (229, 4, 2): 1,  # Class 1
-            (49, 141, 171): 2,  # Class 2
-            (138, 61, 199): 3,  # Class 3
-            (154, 195, 239): 4,  # Class 4
-            (0, 0, 0): 0,
+            (229, 4, 2): 1,  # ILM
+            (49, 141, 171): 2,  # RNFL
+            (138, 61, 199): 3,  # GCL
+            (154, 195, 239): 4,  # IPL
+            (245, 160, 56): 5,  # INL
+            (232, 146, 141): 6,  # OPL
+            (245, 237, 105): 7,  # ONL
+            (232, 206, 208): 8,  # ELM
+            (128, 161, 54): 9,  # PR
+            (32, 207, 255): 10,  # RPE
+            (232, 71, 72): 11,  # BM
+            (212, 182, 222): 12,  # CC
+            (196, 45, 4): 13,  # CS
         }
 
     def __len__(self):
@@ -55,6 +65,7 @@ class CustomSegmentationDataset(Dataset):
             class_mask[(mask == torch.tensor(color)).all(dim=-1)] = class_id
 
         return class_mask
+
 
 class LitSegmentation(L.LightningModule):
     def __init__(self):
