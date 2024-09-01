@@ -15,6 +15,16 @@ class CustomSegmentationDataset(Dataset):
         self.image_filenames = sorted(os.listdir(images_dir))
         self.mask_filenames = sorted(os.listdir(masks_dir))
 
+        # Define a color to class mapping (example)
+        self.color_to_class = {
+            (0, 0, 0): 0,  # Background
+            (229, 4, 2): 1,  # Class 1
+            (49, 141, 171): 2,  # Class 2
+            (138, 61, 199): 3,  # Class 3
+            (154, 195, 239): 4,  # Class 4
+            (0, 0, 0): 0,
+        }
+
     def __len__(self):
         return len(self.image_filenames)
 
@@ -23,14 +33,28 @@ class CustomSegmentationDataset(Dataset):
         mask_path = os.path.join(self.masks_dir, self.mask_filenames[idx])
 
         image = Image.open(img_path).convert("RGB")
-        mask = Image.open(mask_path).convert("L")  # Assuming masks are in grayscale
+        mask = Image.open(mask_path).convert("RGB")  # Load mask as RGB
 
         if self.transform:
             image = self.transform(image)
+
+        # Convert RGB mask to class indices
+        mask = self.rgb_to_class(mask)
+
         if self.target_transform:
             mask = self.target_transform(mask)
 
         return image, mask
+
+    def rgb_to_class(self, mask):
+        # Convert the RGB mask to a single channel of class indices
+        mask = torch.from_numpy(np.array(mask))
+        class_mask = torch.zeros((mask.size(0), mask.size(1)), dtype=torch.long)
+
+        for color, class_id in self.color_to_class.items():
+            class_mask[(mask == torch.tensor(color)).all(dim=-1)] = class_id
+
+        return class_mask
 
 class LitSegmentation(L.LightningModule):
     def __init__(self):
@@ -85,3 +109,6 @@ if __name__ == "__main__":
     data = SegmentationData(data_dir="./data")  # Ensure this points to your data folder
     trainer = L.Trainer(max_epochs=10)
     trainer.fit(model, data)
+
+    # Save the trained model
+    torch.save(model.state_dict(), "model.pth")
