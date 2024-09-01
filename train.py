@@ -14,7 +14,7 @@ logger = TensorBoardLogger("tb_logs", name="segmentation_model")
 
 # Set up early stopping
 early_stopping = EarlyStopping(
-    monitor='train_loss',  # Monitor validation loss
+    monitor='val_loss',  # Monitor validation loss
     patience=5,  # Number of epochs to wait for improvement
     mode='min'  # Mode is 'min' for loss (lower is better)
 )
@@ -58,6 +58,13 @@ class LitSegmentation(L.LightningModule):
         loss = self.loss_fn(outputs, targets.long().squeeze(1))
         self.log("train_loss", loss)
         return loss
+    
+    def validation_step(self, batch):
+        images, targets = batch
+        outputs = self.model(images)['out']
+        loss = self.loss_fn(outputs, targets.long().squeeze(1))
+        self.log("val_loss", loss)
+        return loss
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.model.parameters(), lr=0.001)
@@ -73,16 +80,16 @@ class SegmentationData(L.LightningDataModule):
         # Define transformations
         transform = transforms.Compose([
             transforms.ToTensor(),
-            # transforms.Resize((256, 256)),
+            transforms.Resize((512, 512)),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-        target_transform = transforms.Compose([transforms.ToTensor()])
+        target_transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((512, 512))])
 
-        # Specify the paths for images and masks
         train_images_dir = os.path.join(self.data_dir, "train/images")
         train_masks_dir = os.path.join(self.data_dir, "train/masks")
+        val_images_dir = os.path.join(self.data_dir, "val/images")
+        val_masks_dir = os.path.join(self.data_dir, "val/masks")
 
-        # Create the custom dataset
         self.train_dataset = CustomSegmentationDataset(
             images_dir=train_images_dir,
             masks_dir=train_masks_dir,
@@ -90,19 +97,27 @@ class SegmentationData(L.LightningDataModule):
             target_transform=target_transform
         )
 
+        self.val_dataset = CustomSegmentationDataset(
+            images_dir=val_images_dir,
+            masks_dir=val_masks_dir,
+            transform=transform,
+            target_transform=target_transform
+        )
+
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=2)
+
+    def val_dataloader(self):
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=2)
 
 
 if __name__ == "__main__":
     model = LitSegmentation()
     data = SegmentationData(data_dir="./data")  # Ensure this points to your data folder
-    
-    # logger = TensorBoardLogger("./logs", name="model")
-    
+        
     # Initialize the trainer
     trainer = L.Trainer(
-        max_epochs=20,  # Upper limit
+        max_epochs=15,  # Upper limit
         accelerator="gpu", 
         devices=1,
         logger=logger,

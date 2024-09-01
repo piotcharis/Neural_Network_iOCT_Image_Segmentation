@@ -45,6 +45,10 @@ with torch.no_grad():  # No need to compute gradients during inference
     predicted_mask = torch.argmax(output, dim=1)  # Get the predicted class for each pixel
 
 # Convert the predicted mask back to PIL image or numpy array for visualization
+
+# Print the predicted mask
+print(predicted_mask)
+
 predicted_mask = predicted_mask.squeeze(0).cpu().numpy()  # Remove batch dimension and move to CPU
 predicted_mask_image = Image.fromarray(predicted_mask.astype('uint8'))  # Convert to PIL Image
 predicted_mask_image.save("output_mask.png")  # or save it using predicted_mask_image.save("output_mask.png")
