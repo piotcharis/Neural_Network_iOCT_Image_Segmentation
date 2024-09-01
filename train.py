@@ -1,15 +1,23 @@
 import torch
 from torchvision import transforms, datasets, models
-import lightning as L
+import pytorch_lightning as L
 from PIL import Image
 import os
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-
-print(torch.cuda.is_available())
+from pytorch_lightning.callbacks import EarlyStopping
+from pytorch_lightning.loggers import TensorBoardLogger
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+logger = TensorBoardLogger("tb_logs", name="segmentation_model")
+
+# Set up early stopping
+early_stopping = EarlyStopping(
+    monitor='train_loss',  # Monitor validation loss
+    patience=5,  # Number of epochs to wait for improvement
+    mode='min'  # Mode is 'min' for loss (lower is better)
+)
 
 class CustomSegmentationDataset(Dataset):
     def __init__(self, images_dir, masks_dir, transform=None, target_transform=None):
@@ -28,7 +36,7 @@ class CustomSegmentationDataset(Dataset):
         mask_path = os.path.join(self.masks_dir, self.mask_filenames[idx])
 
         image = Image.open(img_path).convert("RGB")
-        mask = Image.open(mask_path).convert("L")  # Assuming masks are in grayscale
+        mask = Image.open(mask_path).convert("L")
 
         if self.transform:
             image = self.transform(image)
@@ -40,7 +48,7 @@ class CustomSegmentationDataset(Dataset):
 class LitSegmentation(L.LightningModule):
     def __init__(self):
         super().__init__()
-        self.model = models.segmentation.fcn_resnet50(num_classes=21)
+        self.model = models.segmentation.fcn_resnet50(num_classes=13)
         self.loss_fn = torch.nn.CrossEntropyLoss()
 
     def training_step(self, batch):
@@ -65,10 +73,10 @@ class SegmentationData(L.LightningDataModule):
         # Define transformations
         transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Resize((256, 256)),
+            # transforms.Resize((256, 256)),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-        target_transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((256, 256))])
+        target_transform = transforms.Compose([transforms.ToTensor()])
 
         # Specify the paths for images and masks
         train_images_dir = os.path.join(self.data_dir, "train/images")
@@ -89,8 +97,18 @@ class SegmentationData(L.LightningDataModule):
 if __name__ == "__main__":
     model = LitSegmentation()
     data = SegmentationData(data_dir="./data")  # Ensure this points to your data folder
-    trainer = L.Trainer(max_epochs=10, accelerator="gpu", devices=1)  # Use "auto" for devices to use all available GPUs
-
+    
+    # logger = TensorBoardLogger("./logs", name="model")
+    
+    # Initialize the trainer
+    trainer = L.Trainer(
+        max_epochs=20,  # Upper limit
+        accelerator="gpu", 
+        devices=1,
+        logger=logger,
+        callbacks=[early_stopping]
+    )
+    
     trainer.fit(model, data)
 
     # Save the trained model

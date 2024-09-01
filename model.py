@@ -4,91 +4,88 @@ import lightning as L
 from PIL import Image
 import os
 from torch.utils.data import Dataset
+import numpy as np
 
-class CustomSegmentationDataset(Dataset):
-    def __init__(self, images_dir, masks_dir, transform=None, target_transform=None):
-        self.images_dir = images_dir
-        self.masks_dir = masks_dir
-        self.transform = transform
-        self.target_transform = target_transform
-        self.image_filenames = sorted(os.listdir(images_dir))
-        self.mask_filenames = sorted(os.listdir(masks_dir))
-
-    def __len__(self):
-        return len(self.image_filenames)
-
-    def __getitem__(self, idx):
-        img_path = os.path.join(self.images_dir, self.image_filenames[idx])
-        mask_path = os.path.join(self.masks_dir, self.mask_filenames[idx])
-
-        image = Image.open(img_path).convert("RGB")
-        mask = Image.open(mask_path).convert("L")  # Assuming masks are in grayscale
-
-        if self.transform:
-            image = self.transform(image)
-        if self.target_transform:
-            mask = self.target_transform(mask)
-
-        return image, mask
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class LitSegmentation(L.LightningModule):
     def __init__(self):
         super().__init__()
-        self.model = models.segmentation.fcn_resnet50(num_classes=21)
+        self.model = models.segmentation.fcn_resnet50(num_classes=13)
         self.loss_fn = torch.nn.CrossEntropyLoss()
 
-    def training_step(self, batch):
-        images, targets = batch
-        outputs = self.model(images)['out']
-        loss = self.loss_fn(outputs, targets.long().squeeze(1))
-        self.log("train_loss", loss)
-        return loss
+    def forward(self, x):
+        return self.model(x)['out']
+    
+# Load the model
+model = LitSegmentation()
+model.load_state_dict(torch.load("model.pth", weights_only=True))
+model.eval()  # Set the model to evaluation mode
+model.to(device)  # Send the model to GPU if available
+    
 
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.model.parameters(), lr=0.001)
-def load_model(model_path):
-    model = LitSegmentation()
-    model.load_state_dict(torch.load(model_path))
-    model.eval()  # Set the model to evaluation mode
-    return model
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    # transforms.Resize((256, 256)),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
 
-def predict(model, image_path):
-    # Define the transformation
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Resize((256, 256)),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-
-    # Load and transform the image
+def preprocess_image(image_path):
     image = Image.open(image_path).convert("RGB")
     image = transform(image)
+    image = image.unsqueeze(0)  # Add batch dimension
+    return image
 
-    # Add a batch dimension
-    image = image.unsqueeze(0)
+image_path = "./data/test/images/000003_d19dd6c3-895f-4f90-bdc6-0006b85b0c7c.png"  # Replace with the path to your image
+image_tensor = preprocess_image(image_path)
+image_tensor = image_tensor.to(device)  # Move to GPU if available
 
-    # Run the model
-    with torch.no_grad():  # Disable gradient calculation
-        output = model(image)['out']
+with torch.no_grad():  # No need to compute gradients during inference
+    output = model(image_tensor)
+    predicted_mask = torch.argmax(output, dim=1)  # Get the predicted class for each pixel
 
-    # Get the predicted mask (assuming you want the class with the highest score)
-    predicted_mask = torch.argmax(output, dim=1).squeeze(0)
+# Convert the predicted mask back to PIL image or numpy array for visualization
+predicted_mask = predicted_mask.squeeze(0).cpu().numpy()  # Remove batch dimension and move to CPU
+predicted_mask_image = Image.fromarray(predicted_mask.astype('uint8'))  # Convert to PIL Image
+predicted_mask_image.save("output_mask.png")  # or save it using predicted_mask_image.save("output_mask.png")
 
-    return predicted_mask
+def mask_to_color(mask):
+    # Define the color map (you can customize this)
+    colormap = np.array([
+        [0, 0, 0],  # Background
+        [229, 4, 2],  # ILM
+        [49, 141, 171],  # RNFL
+        [138, 61, 199],  # GCL
+        [154, 195, 239],  # IPL
+        [245, 160, 56],  # INL
+        [232, 146, 141],  # OPL
+        [245, 237, 105],  # ONL
+        [232, 206, 208],  # ELM
+        [128, 161, 54],  # PR
+        [32, 207, 255],  # RPE
+        [232, 71, 72],  # BM
+        [212, 182, 222],  # CC
+        [196, 45, 4],  # CS
+    ])
 
-if __name__ == "__main__":
-    # Load the trained model
-    model = load_model("model.pth")
+    # Ensure the mask values are within the range of the colormap
+    mask = mask % len(colormap)
+    color_mask = colormap[mask]
 
-    # Specify the path to a new image
-    image_path = "./data/test/images/000003_d19dd6c3-895f-4f90-bdc6-0006b85b0c7c.png"
+    return color_mask
 
-    # Make a prediction
-    predicted_mask = predict(model, image_path)
+# Convert the predicted mask to color
+color_mask = mask_to_color(predicted_mask)
+color_mask_image = Image.fromarray(color_mask.astype('uint8'))
 
-    # Convert the predicted mask to a PIL image (optional)
-    predicted_mask_pil = transforms.ToPILImage()(predicted_mask.byte())
+# Load the original image
+original_image = Image.open(image_path).convert("RGB")
 
-    # Save or display the predicted mask
-    predicted_mask_pil.save("predicted_mask.png")
-    predicted_mask_pil.show()
+# Ensure that the original image and mask are the same size
+original_image = original_image.resize(color_mask_image.size)
+
+# Blend the original image and the color mask
+blended_image = Image.blend(original_image, color_mask_image, alpha=0.5)
+
+# Display or save the blended image
+blended_image.save("blended_image.png")
