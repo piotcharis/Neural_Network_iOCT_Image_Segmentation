@@ -5,7 +5,10 @@ from PIL import Image
 import os
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-import numpy as np
+
+print(torch.cuda.is_available())
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class CustomSegmentationDataset(Dataset):
@@ -17,24 +20,6 @@ class CustomSegmentationDataset(Dataset):
         self.image_filenames = sorted(os.listdir(images_dir))
         self.mask_filenames = sorted(os.listdir(masks_dir))
 
-        # Define a color to class mapping (example)
-        self.color_to_class = {
-            (0, 0, 0): 0,  # Background
-            (229, 4, 2): 1,  # ILM
-            (49, 141, 171): 2,  # RNFL
-            (138, 61, 199): 3,  # GCL
-            (154, 195, 239): 4,  # IPL
-            (245, 160, 56): 5,  # INL
-            (232, 146, 141): 6,  # OPL
-            (245, 237, 105): 7,  # ONL
-            (232, 206, 208): 8,  # ELM
-            (128, 161, 54): 9,  # PR
-            (32, 207, 255): 10,  # RPE
-            (232, 71, 72): 11,  # BM
-            (212, 182, 222): 12,  # CC
-            (196, 45, 4): 13,  # CS
-        }
-
     def __len__(self):
         return len(self.image_filenames)
 
@@ -43,29 +28,14 @@ class CustomSegmentationDataset(Dataset):
         mask_path = os.path.join(self.masks_dir, self.mask_filenames[idx])
 
         image = Image.open(img_path).convert("RGB")
-        mask = Image.open(mask_path).convert("RGB")  # Load mask as RGB
+        mask = Image.open(mask_path).convert("L")  # Assuming masks are in grayscale
 
         if self.transform:
             image = self.transform(image)
-
-        # Convert RGB mask to class indices
-        mask = self.rgb_to_class(mask)
-
         if self.target_transform:
             mask = self.target_transform(mask)
 
         return image, mask
-
-    def rgb_to_class(self, mask):
-        # Convert the RGB mask to a single channel of class indices
-        mask = torch.from_numpy(np.array(mask))
-        class_mask = torch.zeros((mask.size(0), mask.size(1)), dtype=torch.long)
-
-        for color, class_id in self.color_to_class.items():
-            class_mask[(mask == torch.tensor(color)).all(dim=-1)] = class_id
-
-        return class_mask
-
 
 class LitSegmentation(L.LightningModule):
     def __init__(self):
@@ -75,6 +45,7 @@ class LitSegmentation(L.LightningModule):
 
     def training_step(self, batch):
         images, targets = batch
+        images, targets = images.to(self.device), targets.to(self.device)  # Move to GPU
         outputs = self.model(images)['out']
         loss = self.loss_fn(outputs, targets.long().squeeze(1))
         self.log("train_loss", loss)
@@ -118,7 +89,8 @@ class SegmentationData(L.LightningDataModule):
 if __name__ == "__main__":
     model = LitSegmentation()
     data = SegmentationData(data_dir="./data")  # Ensure this points to your data folder
-    trainer = L.Trainer(max_epochs=10)
+    trainer = L.Trainer(max_epochs=10, accelerator="gpu", devices=1)  # Use "auto" for devices to use all available GPUs
+
     trainer.fit(model, data)
 
     # Save the trained model
