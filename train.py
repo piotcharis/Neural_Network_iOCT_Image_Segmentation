@@ -7,6 +7,7 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from pytorch_lightning.callbacks import EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
+import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -35,13 +36,21 @@ class CustomSegmentationDataset(Dataset):
         img_path = os.path.join(self.images_dir, self.image_filenames[idx])
         mask_path = os.path.join(self.masks_dir, self.mask_filenames[idx])
 
-        image = Image.open(img_path).convert("RGB")
+        image = Image.open(img_path).convert("L")  # Keep it as grayscale
+        image = image.convert("RGB")  # Convert it to RGB by replicating the single channel
         mask = Image.open(mask_path).convert("L")
+        
+        # Mask has values 0-12; we need to convert it to 0-255
+        mask = np.array(mask)
+        mask = (mask / 12 * 255).astype(np.uint8)
+        mask = Image.fromarray(mask)
 
         if self.transform:
             image = self.transform(image)
         if self.target_transform:
             mask = self.target_transform(mask)
+            
+        mask = torch.tensor(np.array(mask), dtype=torch.long)
 
         return image, mask
 
@@ -79,11 +88,14 @@ class SegmentationData(L.LightningDataModule):
     def setup(self, stage=None):
         # Define transformations
         transform = transforms.Compose([
+            transforms.Resize((256, 256)), 
             transforms.ToTensor(),
-            transforms.Resize((512, 512)),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-        target_transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((512, 512))])
+        target_transform = transforms.Compose([
+            transforms.Resize((256, 256), interpolation=Image.NEAREST),  # Resize to match input size
+            transforms.ToTensor()  # Convert to tensor; keeps values as is
+        ])
 
         train_images_dir = os.path.join(self.data_dir, "train/images")
         train_masks_dir = os.path.join(self.data_dir, "train/masks")
@@ -117,7 +129,7 @@ if __name__ == "__main__":
         
     # Initialize the trainer
     trainer = L.Trainer(
-        max_epochs=15,  # Upper limit
+        max_epochs=30,  # Upper limit
         accelerator="gpu", 
         devices=1,
         logger=logger,
