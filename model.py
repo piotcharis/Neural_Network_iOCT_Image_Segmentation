@@ -11,7 +11,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class LitSegmentation(L.LightningModule):
     def __init__(self):
         super().__init__()
-        self.model = models.segmentation.fcn_resnet50(num_classes=13)
+        self.model = models.segmentation.fcn_resnet50(num_classes=14)
         self.loss_fn = torch.nn.CrossEntropyLoss()
 
     def forward(self, x):
@@ -19,7 +19,8 @@ class LitSegmentation(L.LightningModule):
     
 # Load the model
 model = LitSegmentation()
-model.load_state_dict(torch.load("model.pth", weights_only=True))
+state_dict = torch.load("model.pth")
+model.load_state_dict(state_dict, strict=False)
 model.eval()  # Set the model to evaluation mode
 model.to(device)  # Send the model to GPU if available
     
