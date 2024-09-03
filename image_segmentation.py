@@ -36,7 +36,12 @@ class ImageSegmentationDataset(Dataset):
         mask = Image.open(os.path.join(self.root, 'masks', self.masks[idx])).convert('L')
         if self.transform:
             image = self.transform(image)
-            mask = self.transform(mask)
+        
+        # Convert mask to numpy array and ensure it is long tensor with discrete class values
+        mask = transforms.Resize((256, 256))(mask)
+        mask = np.array(mask, dtype=np.int64)  # Ensure mask is not normalized and is integer type
+        mask = torch.tensor(mask, dtype=torch.long)
+                
         return image, mask
     
 # Data augmentation
@@ -50,8 +55,8 @@ class ImageSegmentationModel(L.LightningModule):
     def __init__(self):
         super(ImageSegmentationModel, self).__init__()
         self.model = models.segmentation.fcn_resnet50(pretrained=True)
-        self.model.classifier[4] = torch.nn.Conv2d(512, 1, kernel_size=(1, 1), stride=(1, 1))
-        self.loss = torch.nn.BCEWithLogitsLoss()
+        self.model.classifier[4] = torch.nn.Conv2d(512, 14, kernel_size=(1, 1), stride=(1, 1))
+        self.loss = torch.nn.CrossEntropyLoss()
 
     def forward(self, x):
         return self.model(x)['out']
@@ -90,6 +95,46 @@ def train() -> None:
     val_loader = DataLoader(val_dataset, batch_size=8, shuffle=False)
     trainer = L.Trainer(max_epochs=100, logger=logger, callbacks=[early_stop_callback])
     trainer.fit(model, train_loader, val_loader)
+
+    # Save the model
+    torch.save(model.state_dict(), 'model.pth')
+
+# Visualize the predicted mask on a sample image from the dataset
+def visualize_prediction() -> None:
+    model = ImageSegmentationModel()
+    model.load_state_dict(torch.load('model.pth'))
+    model.eval()
+    model.to(device)
+    dataset = ImageSegmentationDataset('data', transform=transform)
+    image, mask = dataset[0]
+    image = image.unsqueeze(0).to(device)
+    with torch.no_grad():
+        output = model(image)
+        predicted_mask = torch.argmax(output.squeeze(), dim=0).cpu().numpy()
+    
+    # Visualize the image and mask
+    image = transforms.ToPILImage()(image.squeeze())
+    mask = Image.fromarray(predicted_mask.astype('uint8'))
+    mask.putpalette([
+        [0, 0, 0],  # Background
+        [229, 4, 2],  # ILM
+        [49, 141, 171],  # RNFL
+        [138, 61, 199],  # GCL
+        [154, 195, 239],  # IPL
+        [245, 160, 56],  # INL
+        [232, 146, 141],  # OPL
+        [245, 237, 105],  # ONL
+        [232, 206, 208],  # ELM
+        [128, 161, 54],  # PR
+        [32, 207, 255],  # RPE
+        [232, 71, 72],  # BM
+        [212, 182, 222],  # CC
+        [196, 45, 4],  # CS
+    ])
+    # Save the images
+    image.save('sample_image.png')
+    mask.save('predicted_mask.png')
     
 if __name__ == '__main__':
     train()
+    visualize_prediction()
