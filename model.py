@@ -30,4 +30,11 @@ class ImageSegmentationModel(L.LightningModule):
         return self.shared_step(batch, "valid")
     
     def configure_optimizers(self):
-        return self.optimizer
+        # Add a scheduler
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=0.5, patience=3, verbose=True)
+
+        return {
+            'optimizer': self.optimizer,
+            'lr_scheduler': scheduler,
+            'monitor': 'valid_loss'
+        }

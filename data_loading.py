@@ -17,12 +17,13 @@ class ImageSegmentationDataset(Dataset):
 
     def __getitem__(self, idx):
         image = Image.open(os.path.join(self.root, 'images', self.images[idx])).convert('RGB')
-        mask = Image.open(os.path.join(self.root, 'masks', self.masks[idx])).convert('L')
+        mask = Image.open(os.path.join(self.root, 'masks', self.masks[idx]))
         if self.transform:
             image = self.transform(image)
         
         mask = transforms.Resize((512, 256))(mask)
         mask = np.array(mask, dtype=np.int64)
+        
         mask = torch.tensor(mask, dtype=torch.long).unsqueeze(0)
                 
         return image, mask

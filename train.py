@@ -4,38 +4,57 @@ from torch.utils.data import DataLoader
 from pytorch_lightning.callbacks import EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 import segmentation_models_pytorch as smp
+import cv2
+import numpy as np
+from PIL import Image
 
 from data_loading import ImageSegmentationDataset, transform
 from model import ImageSegmentationModel
-
-CLASSES = ['Background', 'ILM', 'RNFL', 'GCL', 'IPL', 'INL', 'OPL', 'ONL', 'ELM', 'PR', 'RPE', 'BM', 'CC', 'CS']
-ENCODER_WEIGHTS = 'imagenet'
-ENCODER = 'resnet50'
-ACTIVATION = None
-MULTICLASS_MODE : str = "multiclass"
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 logger = TensorBoardLogger('tb_logs', name='image_segmentation')
 
 early_stop_callback = EarlyStopping(
-    monitor='val_loss',
+    monitor='valid_loss',
     min_delta=0.0001,
     patience=10,
     verbose=True,
     mode='min'
 )
 
+def mask_to_color(mask):
+    # Define the color map (you can customize this)
+    colormap = np.array([
+        [0, 0, 0],  # Background
+        [229, 4, 2],  # ILM
+        [49, 141, 171],  # RNFL
+        [138, 61, 199],  # GCL
+        [154, 195, 239],  # IPL
+        [245, 160, 56],  # INL
+        [232, 146, 141],  # OPL
+        [245, 237, 105],  # ONL
+        [232, 206, 208],  # ELM
+        [128, 161, 54],  # PR
+        [32, 207, 255],  # RPE
+        [232, 71, 72],  # BM
+        [212, 182, 222],  # CC
+        [196, 45, 4],  # CS
+    ])
+
+    # Ensure the mask values are within the range of the colormap
+    mask = mask % len(colormap)
+    color_mask = colormap[mask]
+
+    return color_mask
+
 def train() -> None:
-    dataset = ImageSegmentationDataset('data', transform=transform) # Create dataset
-    train_size = int(0.8 * len(dataset)) # Split dataset into train and validation sets (80% train, 20% validation)
-    val_size = len(dataset) - train_size # Calculate validation set size
-    torch.manual_seed(42)
-    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size]) # Split dataset into train and validation sets using random_split
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=8, shuffle=False)
+    train_dataset = ImageSegmentationDataset('data/train', transform=transform)
+    val_dataset = ImageSegmentationDataset('data/val', transform=transform)
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False)
     
-    arch = 'unet'
-    enc_name = 'resnet50'
+    arch = 'unetplusplus'
+    enc_name = 'efficientnet-b0'
     classes = 14
 
     model = smp.create_model(arch,
@@ -44,7 +63,8 @@ def train() -> None:
                             in_channels = 3,
                             classes = classes).to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-03)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    
     criterion = smp.losses.DiceLoss(mode='multiclass', from_logits=True).to(device)
     cbs = L.callbacks.ModelCheckpoint(dirpath = f'./checkpoints_{arch}',
                                     filename = arch, 
@@ -53,12 +73,7 @@ def train() -> None:
                                     mode = 'min')
     
     pl_model = ImageSegmentationModel(model, optimizer, criterion)
-    trainer = L.Trainer(accelerator='gpu', max_epochs=100, logger=logger, callbacks=cbs)
+    trainer = L.Trainer(accelerator='gpu', max_epochs=30, logger=logger, callbacks=[cbs, early_stop_callback], precision=16)
     trainer.fit(pl_model, train_loader, val_loader)
 
-   
-    
-    # trainer = L.Trainer(max_epochs=50, logger=logger, callbacks=[early_stop_callback])
-    # trainer.fit(model, train_loader, val_loader)
-    
     torch.save(model.state_dict(), 'model.pth')
