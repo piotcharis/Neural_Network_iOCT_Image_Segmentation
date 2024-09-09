@@ -111,9 +111,11 @@ class UNet(pl.LightningModule):
 
         # Reshape masks to have the correct shape: [batch_size, height, width]
         masks = masks.squeeze(-1)
-
+        
         # Compute the loss
         loss = self.criterion(output, masks)
+        
+        self.log("train_loss", loss)
 
         return {"loss": loss}
 
@@ -126,6 +128,8 @@ class UNet(pl.LightningModule):
 
         # Compute the validation loss
         val_loss = F.cross_entropy(output, masks)
+        
+        self.log("val_loss", val_loss)
 
         return {"val_loss": val_loss}
     
