@@ -27,7 +27,7 @@ model.to(device)  # Send the model to GPU if available
 
 transform = transforms.Compose([
     transforms.ToTensor(),
-    transforms.Resize((512, 256)),
+    transforms.Resize((256, 256)),
 ])
 
 def preprocess_image(image_path):
@@ -42,9 +42,9 @@ image_tensor = image_tensor.to(device)  # Move to GPU if available
 
 with torch.no_grad():  # No need to compute gradients during inference
     output = model(image_tensor)
+    
     predicted_mask = torch.argmax(output, dim=1)  # Get the predicted class for each pixel
 
-# Convert the predicted mask back to PIL image or numpy array for visualization
 
 # Print the predicted mask
 print(predicted_mask)
