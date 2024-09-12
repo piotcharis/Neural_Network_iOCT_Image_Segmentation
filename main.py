@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 
 import torch
 from torch import nn, optim
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 import pytorch_lightning as pl
@@ -18,8 +17,6 @@ from torchmetrics.classification import MulticlassJaccardIndex, MulticlassAccura
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-
-from PIL import Image
 
 from unet import UNet
 
@@ -35,6 +32,10 @@ TRAIN_PATH_X = './data/train/images'
 TRAIN_PATH_Y = './data/train/masks'
 TEST_PATH_X = './data/test/images'
 TEST_PATH_Y = './data/test/masks'
+
+# Training parameters
+num_epochs = 250
+batch_size = 16 # Higher is better but requires more memory
 
 # Set print options to display full arrays
 np.set_printoptions(threshold=sys.maxsize)
@@ -134,17 +135,13 @@ model = UNet(n_classes=n_classes, img_channels=1).to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
 criterion = nn.CrossEntropyLoss() # CrossEntropyLoss for multi-class segmentation
 
-# Training parameters
-num_epochs = 150
-batch_size = 16 # Higher is better but requires more memory
-
 train_loader = DataLoader(list(zip(x_train, y_train_one_hot)), batch_size=batch_size, shuffle=True) # DataLoader for training, shuffle the data for better training and generalization
 test_loader = DataLoader(list(zip(X_test, y_test_one_hot)), batch_size=batch_size, shuffle=False)   # DataLoader for testing
 
 train_losses, val_losses = [], [] # Lists to store training and validation losses
 
-# Trainer
-trainer = pl.Trainer(max_epochs=num_epochs, logger=logger) 
+trainer = pl.Trainer(max_epochs=num_epochs, logger=logger) # PyTorch Lightning Trainer
+
 trainer.fit(model, train_loader, test_loader) # Fit the model
     
 # Save the model
@@ -172,17 +169,11 @@ with torch.no_grad():
 y_pred = torch.cat(y_pred, dim=0)
 y_true = torch.cat(y_true, dim=0)
 
-# Calculate and print the IoU (Jaccard Index)
+# Calculate and print the IoU (Jaccard Index) & Accuracy
 iou = jaccard_idx(y_pred, y_true)
 acc = accuracy(y_pred, y_true)
 print("Mean IoU =", iou.item())
 print("Accuracy =", acc.item())
-
-# Plot the training and validation losses
-plt.figure(figsize=(20, 10))
-plt.plot(train_losses, label='Training Loss')
-plt.plot(val_losses, label='Validation Loss')
-plt.xlabel('Epochs')
 
 # ---------------------------------------------------------------------------------------------- #
 
@@ -236,7 +227,19 @@ color_map = np.array([
 predicted_img_color = color_map[predicted_img]
 ground_truth_color = color_map[ground_truth]
 
-# Plot the three images
+# Plot the predicted blended image
+plt.figure(figsize=(20, 10))
+alpha = 0.5
+plt.title('Blended Prediction')
+plt.imshow(test_img_cpy[:, :, 0], cmap='gray')
+plt.imshow(predicted_img_color, cmap='jet', alpha=alpha)
+
+# Save the blended plot to a file
+plt.savefig('prediction.png')
+
+plt.show()
+
+# Plot the three seperate images
 plt.figure(figsize=(20, 10))
 
 # Test image
@@ -254,14 +257,3 @@ plt.subplot(233)
 plt.title('Model Prediction')
 plt.imshow(predicted_img_color, cmap='jet')
 plt.show()
-
-# Save the predicted mask blended with the original image
-# TODO: Blending is not working as expected
-alpha = 0.5
-predicted_mask_image = Image.fromarray(predicted_img_color.astype('uint8'))
-original_image = Image.fromarray(test_img_cpy[:, :, 0].astype('uint8')).convert('RGB')
-
-predicted_mask_image = predicted_mask_image.resize(original_image.size)
-blended_image = Image.blend(original_image, predicted_mask_image, alpha)
-blended_image = blended_image.resize((512, 1024))
-blended_image.save("predicted_mask_image.png")
