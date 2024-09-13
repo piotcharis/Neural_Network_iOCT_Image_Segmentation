@@ -15,7 +15,7 @@
 
     <h2 style="margin-top: 50px">Manage Model</h2>
     <div class="model-container">
-      <input type="file" id="modelInput" accept=".pth" />
+      <input type="file" id="modelInput" accept=".pth" /> <!-- Accept only .pth files -->
       <div style="display: flex; flex-direction: column; margin-top: 10px">
         <div>
           <button id="uploadModelBtn">Upload New Model</button>
@@ -25,21 +25,23 @@
     </div>
 
     <script>
+      // Trigger when the file input changes  
       document.getElementById("fileInput").onchange = function (event) {
-        let file = event.target.files[0];
+        let file = event.target.files[0]; // Get the file from the input element
         if (file) {
           let formData = new FormData();
-          formData.append("file", file);
+          formData.append("file", file); // Append the file to the form data
 
+          // Send the image to the server with a POST request
           fetch("http://127.0.0.1:5000/predict", {
             method: "POST",
             body: formData,
           })
-            .then((response) => response.blob())
-            .then((blob) => {
-              let imgElement = document.getElementById("outputImage");
-              imgElement.src = URL.createObjectURL(blob);
-              imgElement.style.display = "block";
+            .then((response) => response.blob())                        // Get the response as a blob
+            .then((blob) => {   
+              let imgElement = document.getElementById("outputImage");  // Get the image element
+              imgElement.src = URL.createObjectURL(blob);               // Set the image source to the response blob
+              imgElement.style.display = "block";                       // Display the image
             })
             .catch((error) => {
               console.error("Error:", error);
@@ -47,19 +49,21 @@
         }
       };
 
+      // Trigger when the upload model button is clicked
       document.getElementById("uploadModelBtn").onclick = function () {
-        let modelFile = document.getElementById("modelInput").files[0];
+        let modelFile = document.getElementById("modelInput").files[0]; // Get the model file
         if (modelFile) {
           let formData = new FormData();
-          formData.append("model", modelFile);
+          formData.append("model", modelFile); // Append the model file to the form data
 
+          // Send the model file to the server with a POST request
           fetch("hhttp://127.0.0.1:5000/upload_model", {
             method: "POST",
             body: formData,
           })
-            .then((response) => response.json())
+            .then((response) => response.json()) // Get the response as JSON
             .then((data) => {
-              alert(data.message);
+              alert(data.message);               // Show the response message
             })
             .catch((error) => {
               console.error("Error:", error);
@@ -67,13 +71,16 @@
         }
       };
 
+      // Trigger when the revert model button is clicked
       document.getElementById("revertModelBtn").onclick = function () {
+
+        // Send a POST request to the server to revert the model
         fetch("http://127.0.0.1:5000/revert_model", {
           method: "POST",
         })
-          .then((response) => response.json())
+          .then((response) => response.json()) // Get the response as JSON
           .then((data) => {
-            alert(data.message);
+            alert(data.message);               // Show the response message
           })
           .catch((error) => {
             console.error("Error:", error);
