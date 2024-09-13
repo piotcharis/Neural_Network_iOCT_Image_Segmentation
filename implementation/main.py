@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
+import torch.nn.functional as F
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
