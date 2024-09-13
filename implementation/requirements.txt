@@ -1,9 +1,8 @@
-matplotlib==3.9.2
-numpy==2.1.1
-opencv_python==4.10.0.84
-opencv_python_headless==4.10.0.84
-pytorch_lightning==2.4.0
-scikit_learn==1.5.2
-torch==2.5.0.dev20240831+cu124
-torchmetrics==1.4.1
-unet==0.7.7
+matplotlib
+numpy
+opencv_python
+opencv_python_headless
+pytorch_lightning
+scikit_learn
+torch
+torchmetrics

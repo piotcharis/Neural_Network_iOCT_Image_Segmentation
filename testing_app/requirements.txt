@@ -6,4 +6,3 @@ opencv_python
 opencv_python_headless
 Pillow
 torch
-unet
