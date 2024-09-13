@@ -31,7 +31,7 @@
                 let formData = new FormData();
                 formData.append("file", file);
 
-                fetch('http://127.0.0.1:5000/predict', {
+                fetch('https://cap-f3yr.onrender.com/predict', {
                     method: 'POST',
                     body: formData
                 })
@@ -53,7 +53,7 @@
                 let formData = new FormData();
                 formData.append("model", modelFile);
 
-                fetch('http://127.0.0.1:5000/upload_model', {
+                fetch('https://cap-f3yr.onrender.com/upload_model', {
                     method: 'POST',
                     body: formData
                 })
@@ -68,7 +68,7 @@
         };
 
         document.getElementById('revertModelBtn').onclick = function() {
-            fetch('http://127.0.0.1:5000/revert_model', {
+            fetch('https://cap-f3yr.onrender.com/revert_model', {
                 method: 'POST'
             })
             .then(response => response.json())

@@ -15,6 +15,9 @@ from unet import UNet
 app = Flask(__name__)
 CORS(app)
 
+# Bind to PORT if defined, otherwise default to 5000
+port = int(os.environ.get('PORT', 5000))
+
 # Set device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
