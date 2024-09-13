@@ -73,8 +73,12 @@ def predict():
     plt.imshow(image, cmap='gray')
     plt.title('Input Image')
     
+    # Resize the image to 512x256
+    image = cv2.resize(np.array(image), (256, 512))
+    
     plt.subplot(1, 2, 2)
-    plt.imshow(predicted_mask_color)
+    plt.imshow(image, cmap='gray')
+    plt.imshow(predicted_mask_color, alpha=0.5)
     plt.title('Predicted Mask')
     
     img_io = BytesIO()
