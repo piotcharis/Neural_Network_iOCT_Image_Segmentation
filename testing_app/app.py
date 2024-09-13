@@ -7,6 +7,8 @@ from flask import Flask, request, jsonify, send_file
 from PIL import Image
 from io import BytesIO
 from flask_cors import CORS
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, '../model')

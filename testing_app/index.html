@@ -1,84 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Segmentation Prediction</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
     <h1>Upload an image for segmentation</h1>
     <div class="container">
-        <input type="file" id="fileInput">
-        <img id="outputImage" style="display:none;" alt="Prediction">
+      <input type="file" id="fileInput" />
+      <img id="outputImage" style="display: none" alt="Prediction" />
     </div>
-    
-    <h2 style="margin-top: 50px;">Manage Model</h2>
+
+    <h2 style="margin-top: 50px">Manage Model</h2>
     <div class="model-container">
-        <input type="file" id="modelInput" accept=".pth">
-        <div style="display: flex; flex-direction:column; margin-top: 10px;">
-            <div>
-                <button id="uploadModelBtn">Upload New Model</button>
-                <button id="revertModelBtn">Revert to Default Model</button>
-            </div>
+      <input type="file" id="modelInput" accept=".pth" />
+      <div style="display: flex; flex-direction: column; margin-top: 10px">
+        <div>
+          <button id="uploadModelBtn">Upload New Model</button>
+          <button id="revertModelBtn">Revert to Default Model</button>
         </div>
+      </div>
     </div>
 
     <script>
-        document.getElementById('fileInput').onchange = function(event) {
-            let file = event.target.files[0];
-            if (file) {
-                let formData = new FormData();
-                formData.append("file", file);
+      document.getElementById("fileInput").onchange = function (event) {
+        let file = event.target.files[0];
+        if (file) {
+          let formData = new FormData();
+          formData.append("file", file);
 
-                fetch('https://cap-f3yr.onrender.com/predict', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.blob())
-                .then(blob => {
-                    let imgElement = document.getElementById('outputImage');
-                    imgElement.src = URL.createObjectURL(blob);
-                    imgElement.style.display = 'block';
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                });
-            }
-        };
-
-        document.getElementById('uploadModelBtn').onclick = function() {
-            let modelFile = document.getElementById('modelInput').files[0];
-            if (modelFile) {
-                let formData = new FormData();
-                formData.append("model", modelFile);
-
-                fetch('https://cap-f3yr.onrender.com/upload_model', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    alert(data.message);
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                });
-            }
-        };
-
-        document.getElementById('revertModelBtn').onclick = function() {
-            fetch('https://cap-f3yr.onrender.com/revert_model', {
-                method: 'POST'
+          fetch("http://127.0.0.1:5000/predict", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => response.blob())
+            .then((blob) => {
+              let imgElement = document.getElementById("outputImage");
+              imgElement.src = URL.createObjectURL(blob);
+              imgElement.style.display = "block";
             })
-            .then(response => response.json())
-            .then(data => {
-                alert(data.message);
-            })
-            .catch(error => {
-                console.error('Error:', error);
+            .catch((error) => {
+              console.error("Error:", error);
             });
-        };
+        }
+      };
+
+      document.getElementById("uploadModelBtn").onclick = function () {
+        let modelFile = document.getElementById("modelInput").files[0];
+        if (modelFile) {
+          let formData = new FormData();
+          formData.append("model", modelFile);
+
+          fetch("hhttp://127.0.0.1:5000/upload_model", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              alert(data.message);
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+            });
+        }
+      };
+
+      document.getElementById("revertModelBtn").onclick = function () {
+        fetch("http://127.0.0.1:5000/revert_model", {
+          method: "POST",
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            alert(data.message);
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+          });
+      };
     </script>
-</body>
+  </body>
 </html>

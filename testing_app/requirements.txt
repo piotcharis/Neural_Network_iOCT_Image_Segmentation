@@ -3,6 +3,5 @@ Flask_Cors
 matplotlib
 numpy
 opencv_python
-opencv_python_headless
 Pillow
 torch
