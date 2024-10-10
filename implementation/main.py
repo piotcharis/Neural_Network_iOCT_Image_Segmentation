@@ -148,6 +148,7 @@ trainer.fit(model, train_loader, test_loader) # Fit the model
     
 # Save the model
 torch.save(model.state_dict(), 'model.pth')
+torch.save(model.state_dict(), '../testing_app/model.pth') # Save the model to the testing app directory
 
 # ---------------------------------------------------------------------------------------------- #
 
