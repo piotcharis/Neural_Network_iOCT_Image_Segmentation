@@ -174,7 +174,7 @@ This file contains the CSS code for styling the web interface.
 ## Usage
 Make sure the data is structured as described above and train the model in one of two ways below. Both will save the trained model as a `.pth` file in both the `/implementation` as well as the `/testing_app` directories.
 
-### 1. Way
+### 1. Way (Recommended)
 Run the `cap-oct-image-segmentation.ipynb` file in a Jupyter notebook environment.
 
 ### 2. Way
